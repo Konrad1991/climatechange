@@ -1,3 +1,3 @@
 # Climate change
 
-![alt text](./climatechange.tiff)
+![climate change]('climatechange.tiff')
