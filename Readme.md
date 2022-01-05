@@ -1,3 +1,3 @@
 # Climate change
 
-![climate change](master/climatechange.tiff)
+![climate change](master/climatechange.jpeg)

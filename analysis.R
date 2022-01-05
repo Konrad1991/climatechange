@@ -74,7 +74,7 @@ library(ggpubr)
 
 p <- ggarrange(p1, p2, p3, ncol = 1)
 
-tiff("/home/konrad/Documents/0Uni/programming/climatechange/climatechange.tiff",
+jpeg("/home/konrad/Documents/0Uni/programming/climatechange/climatechange.jpeg",
      width = 880)
 print(p)
 dev.off()
