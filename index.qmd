@@ -1,0 +1,178 @@
+---
+title: "Climate change"
+format: 
+  revealjs:
+     theme: [moon]
+---
+
+```{r setup, include=FALSE} 
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
+
+## CO~2~ conc. in the atmosphere 
+
+```{r, eval = FALSE, echo = FALSE, warning = FALSE}
+# Download data
+# ===================================================================================
+
+# Import data co2
+library("jsonlite")
+# https://datahub.io/core/co2-fossil-global#r
+json_file <- 'https://datahub.io/core/co2-fossil-global/datapackage.json'
+json_data <- fromJSON(paste(readLines(json_file), collapse=""))
+
+data_co2_emission <- NULL
+for(i in 1:length(json_data$resources$datahub$type)){
+  if(json_data$resources$datahub$type[i]=='derived/csv'){
+    path_to_file = json_data$resources$path[i]
+    data_co2_emission <- read.csv(url(path_to_file))
+  }
+}
+write.csv(data_co2_emission, file = "data/co2_emission.csv")
+
+
+# Import data temperature
+json_file <- 'https://datahub.io/core/global-temp/datapackage.json'
+json_data <- fromJSON(paste(readLines(json_file), collapse=""))
+data_temp <- NULL
+for(i in 1:length(json_data$resources$datahub$type)){
+  if(json_data$resources$datahub$type[i]=='derived/csv'){
+    path_to_file = json_data$resources$path[i]
+    data_temp <- read.csv(url(path_to_file))
+  }
+}
+write.csv(data_temp, file = "data/temperature.csv")
+
+# Import sealevel data
+json_file <- 'https://datahub.io/core/sea-level-rise/datapackage.json'
+json_data <- fromJSON(paste(readLines(json_file), collapse=""))
+data_sea_level <- NULL
+# print all tabular data(if exists any)
+for(i in 1:length(json_data$resources$datahub$type)){
+  if(json_data$resources$datahub$type[i]=='derived/csv'){
+    path_to_file = json_data$resources$path[i]
+    data_sea_level <- read.csv(url(path_to_file))
+  }
+}
+write.csv(data_sea_level, file = "data/sealevel.csv")
+
+```
+
+```{r, eval = TRUE, echo = FALSE}
+# Import data
+
+# Import CO2 conc. in atmosphere
+# https://ourworldindata.org/atmospheric-concentrations#how-have-global-co2-concentrations-changed-over-time
+data_co2_atmosphere <- read.csv("data/co2_conc_atmosphere.csv")
+data_co2_atmosphere <- data_co2_atmosphere[, c(2, 3)]
+data_co2_atmosphere <- data_co2_atmosphere[!is.na(data_co2_atmosphere[, 2]), ]
+
+# Import CO2 emission
+data_co2_emission <- read.csv("data/co2_emission.csv")
+
+# Import temperature
+data_temp <- read.csv("data/temperature.csv")
+
+# Import sealevel
+data_sea_level <- read.csv("data/sealevel.csv")
+```
+
+```{r, eval = TRUE, echo = FALSE, fig.cap = "CO~2~-conc. in the atmpsphere [ppm]. Data from https://ourworldindata.org/atmospheric-concentrations#how-have-global-co2-concentrations-changed-over-time"}
+library(ggplot2)
+p <- ggplot() +
+  geom_point(data = data_co2_atmosphere, aes(x = Year, y = CO2.concentrations),
+             size = 1) +
+  ylab(bquote(CO[2] ~ "[ppm]") ) +
+  theme(axis.text = element_text(size = 9))
+p
+```
+
+
+## Caused by CO~2~ emission of humankind
+
+```{r, eval = TRUE, echo = FALSE, fig.cap = "CO~2~ emissions from fossil fuels in million metric tons. Data from: https://datahub.io/core/co2-fossil-global#r"}
+library(ggplot2)
+df <- data_co2_atmosphere
+df <- df[df$Year > 1750, ]
+
+df2 <- data_co2_emission[, c(2, 3)]
+df <- merge(df, df2, by = 1, all = TRUE)
+
+p <- ggplot(data = df, aes(x = Year, y = Total)) +
+  geom_point(size = 1, colour = "#00BFC4",) +
+  geom_point(aes(y = CO2.concentrations*20),
+             colour = "#F8766D",
+             size = 1) +
+  scale_y_continuous( bquote(CO[2] ~ "emission [Mmt C]"),
+                      sec.axis = sec_axis(~./20,
+                                          name = bquote(CO[2] ~ "conc. [ppm]")) ) +
+  theme(legend.position = "none",
+        axis.title.y.left = element_text(colour = "#00BFC4", face = "bold"),
+        axis.title.y.right = element_text(colour = "#F8766D", face = "bold") ) 
+p
+```
+
+
+## Increase of temperature is caused too
+
+```{r, eval = TRUE, echo = FALSE, fig.cap = "Average global mean temperature anomalies relative to a base period. Relative to GCAG base period: 20th century average. Data from: https://datahub.io/core/global-temp#r"}
+library(ggplot2)
+df <- data_co2_atmosphere
+df <- df[df$Year > 1900, ]
+
+# add co2 emission
+df2 <- data_co2_emission[data_co2_emission$Year > 1900, c(2, 3)]
+df <- merge(df, df2, by = 1, all = TRUE)
+
+# temperature
+df2 <- data_temp
+df2 <- df2[df2$Source == "GCAG", ]
+df2 <- df2[, c(3, 4)]
+
+# callc mean for years
+dates <- sapply(df2$Date, function(x) {
+  temp <- strsplit(x, split = "-")
+  return(temp[[1]][1])
+})
+df2$Year <- dates
+
+df3 <- lapply(unique(df2$Year), function(x) {
+  temp <- df2[df2$Year == x, 2]
+  return(data.frame(Year = x, T = mean(temp)))
+})
+df3 <- do.call(rbind, df3)
+df3$Year <- as.integer(df3$Year)
+
+# combine data
+df_new <- merge(df, df3, by = 1, all = TRUE)
+df_new <- tidyr::pivot_longer(df_new, cols = c(2, 3, 4))
+
+df_new$name <- gsub("Total", expression("CO"["2"] ~ "emission" ~ "[Mmt]"), df_new$name)
+df_new$name <- gsub("CO2.concentrations", expression("CO"["2"] ~ "[ppm]"), df_new$name)
+df_new$name <- gsub("T", expression(paste("Temperature [",degree,"C]")), df_new$name)
+# plot
+library(lemon)
+n <- c("Carbon dioxid conc. [ppm]", "Temperature increase in degree Celsius", "Carbon dioxid emission [Mmt C]")
+names(n) <- c("CO2.concentrations", "T", "Total")
+p <- ggplot(data = df_new, aes(x = Year, y = value)) +
+  geom_point() +
+  facet_wrap(.~ name, scales = "free",
+             strip.position = "left",
+               labeller = label_parsed
+               #labeller(name = n),
+             ) +
+  theme(axis.title.y = element_blank(),
+        panel.border = element_blank(),
+        axis.line = element_line(),
+        strip.placement = "outside"
+        ) 
+p
+```
+
+
+## Data from IPCC
+
+```{r}
+# https://www.ipcc-data.org/sim/gcm_monthly/
+```
+
